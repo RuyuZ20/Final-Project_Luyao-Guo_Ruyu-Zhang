@@ -50,17 +50,6 @@ INCTOT	Total personal income
 DIFFMOB	Independent living difficulty
 DIFFCARE	Self-care difficulty
 
-Step 1: Data Cleaning and Initial Exploration
-
-(Partner 1): 
-1. Handle placeholder values and clean the data.
-2. Identify and replace placeholder values like 9999999 with NaN.
-3. Filter the dataset for individuals aged 65+.
-4. Create a new column for Housing_Burden (e.g., RENTGRS / INCTOT * 100).
-Deliverables:
-Cleaned data ready for analysis.
-Summary of missing values and cleaned variables.
-
 ```{python}
 import pandas as pd
 import altair as alt
@@ -69,8 +58,19 @@ import warnings
 import os
 warnings.filterwarnings('ignore')
 alt.renderers.enable("png")
-
 ```
+
+Step 1: Data Cleaning and Initial Exploration
+
+(Partner 1): 
+1. Handle placeholder values and clean the data.
+2. Identify and replace placeholder values like 9999999 with NaN.
+3. Filter the dataset for individuals aged 65+.
+4. Create a new column for Housing_Burden (e.g., RENTGRS / INCTOT * 100).
+
+Deliverables:
+Cleaned data ready for analysis.
+Summary of missing values and cleaned variables.
 
 ```{python}
 base_path = '/Users/ruyuzhang/Desktop/PPHA 30538'
