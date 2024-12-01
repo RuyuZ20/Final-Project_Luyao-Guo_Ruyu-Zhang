@@ -73,7 +73,7 @@ Cleaned data ready for analysis.
 Summary of missing values and cleaned variables.
 
 ```{python}
-base_path = '/Users/ruyuzhang/Desktop/PPHA 30538'
+base_path = '/Users/apple/Desktop/class/Dap-2/problem_sets'
 path_1=os.path.join(base_path,"usa_00003.csv")
 df_raw_data = pd.read_csv(path_1)
 ```
@@ -204,5 +204,50 @@ chart_housing_burden = alt.Chart(state_summary_sorted_hb).mark_bar().encode(
 )
 
 chart_housing_burden.display()
+```
+
+Step 2: Geographic Mapping with State Shapefiles
+
+(Partner 1):
+1. Load the U.S. state boundary shapefile and ensure relevant columns are formatted 
+consistently for merging.
+2. Merge the state boundary GeoDataFrame with the state-level dataset to integrate 
+housing burden data for older adults.
+3. Create a choropleth map to highlight state-level variations in average housing burden, 
+with an optimized legend and layout for better readability.
+```{python}
+import geopandas as gpd
+import matplotlib.pyplot as plt
+# 1: Load the shapefile
+shapefile_path = '/Users/apple/Desktop/class/Dap-2/problem_sets/tl_2023_us_state/tl_2023_us_state.shp'
+gdf_states = gpd.read_file(shapefile_path)
+gdf_states['STATEFP'] = gdf_states['STATEFP'].astype(int)
+
+# 2: Ensure `state_summary_hb` includes `STATEFP` for merging
+state_summary_hb = state_summary_hb.rename(columns={"State_name": "State", "STATEFIP": "STATEFP"})
+state_summary_hb['STATEFP'] = state_summary_hb['STATEFP'].astype(int)
+
+# 3: Merge `state_summary_hb` with `gdf_states`
+merged_gdf = gdf_states.merge(state_summary_hb, on='STATEFP', how='left')
+# 4: Plot the choropleth map
+fig, ax = plt.subplots(1, 1, figsize=(24, 12))
+map_plot = merged_gdf.plot(
+    column='avg_housing_burden',
+    cmap='OrRd',
+    legend=True,
+    legend_kwds={
+        'label': "Average Housing Burden (%)",
+        'orientation': "horizontal",
+        'shrink': 0.6,
+        'pad': 0.05
+    },
+    edgecolor='black',
+    ax=ax
+)
+ax.set_title("Average Housing Burden by State (2023)", fontsize=24)
+ax.set_axis_off()
+# Adjust layout 
+plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.1)
+plt.show()
 ```
 
