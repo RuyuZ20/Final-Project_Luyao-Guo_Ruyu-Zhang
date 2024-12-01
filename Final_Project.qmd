@@ -19,13 +19,44 @@ output:
   echo: false
   eval: false
 ---
+
+Data Dictionary:
+YEAR  Census year 
+SAMPLE	IPUMS sample identifier
+SERIAL	Household serial number 
+CBSERIAL	Original Census Bureau household serial number
+HHWT	Household weight
+CLUSTER	Household cluster for variance estimation
+COUNTYFIP	County (FIPS code, identifiable counties only)
+CITY	City (identifiable cities only)
+STRATA	Household strata for variance estimation
+GQ	Group quarters status
+NFAMS	Number of families in household
+PERNUM	Person number in sample unit 
+PERWT	  Person weight
+RELATE	Relationship to household head
+SEX	  Sex
+MARST	Marital status
+RACE	Race
+EDUC	Educational attainment
+EMPSTAT	Employment status
+FTOTINC	Total family income
+POVERTY	Poverty status
+INCEARN	Total personal earned income
+STATEFIP	State (FIPS code)
+AGE	    Age
+RENTGRS	Monthly gross rent
+INCTOT	Total personal income
+DIFFMOB	Independent living difficulty
+DIFFCARE	Self-care difficulty
+
 Step 1: Data Cleaning and Initial Exploration
 
 (Partner 1): 
-Handle placeholder values and clean the data.
-Identify and replace placeholder values like 9999999 with NaN.
-Filter the dataset for individuals aged 65+.
-Create a new column for Housing_Burden (e.g., RENTGRS / INCTOT * 100).
+1. Handle placeholder values and clean the data.
+2. Identify and replace placeholder values like 9999999 with NaN.
+3. Filter the dataset for individuals aged 65+.
+4. Create a new column for Housing_Burden (e.g., RENTGRS / INCTOT * 100).
 Deliverables:
 Cleaned data ready for analysis.
 Summary of missing values and cleaned variables.
@@ -35,15 +66,18 @@ import pandas as pd
 import altair as alt
 import numpy as np
 import warnings
+import os
 warnings.filterwarnings('ignore')
 alt.renderers.enable("png")
 
 ```
 
 ```{python}
-file_path = '/Users/apple/Desktop/class/Dap-2/problem_sets/usa_00003_1.csv'
-df_raw_data = pd.read_csv(file_path)
+base_path = '/Users/ruyuzhang/Desktop/PPHA 30538'
+path_1=os.path.join(base_path,"usa_00003.csv")
+df_raw_data = pd.read_csv(path_1)
 ```
+
 ```{python}
 print(df_raw_data.head())
 
@@ -51,23 +85,23 @@ print(df_raw_data.head())
 print(df_raw_data.columns.tolist())
 ```
 
-
 Extract columns as needed
+
 ```{python}
 #1
 columns_needed = ['YEAR', 'STATEFIP', 'AGE', 'RENTGRS', 'INCTOT', 'DIFFMOB', 'DIFFCARE']
-data = pd.read_csv(file_path, usecols=columns_needed)
-print(data.info())
+cleaned_data = pd.read_csv(file_path, usecols=columns_needed)
+print(cleaned_data.info())
 ```
 
 ```{python}
 #2
 # Replace NaN
 placeholder_values = [9999999, 0]
-data.replace(placeholder_values, np.nan, inplace=True)
+cleaned_data.replace(placeholder_values, np.nan, inplace=True)
 
 # Check NaN
-print(data.isnull().sum())
+print(cleaned_data.isnull().sum())
 
 ```
 
@@ -77,43 +111,98 @@ print(data.isnull().sum())
 ```{python}
 #3
 # drop missing values rentgers
-data = data.dropna(subset=['RENTGRS'])
-print(data.isnull().sum())
+cleaned_data = cleaned_data.dropna(subset=['RENTGRS'])
+print(cleaned_data.isnull().sum())
 
 #4
 # Fill in other missing values with default values
-data['AGE'].fillna(data['AGE'].median(), inplace=True)
-data['INCTOT'].fillna(0, inplace=True)
-data['DIFFMOB'].fillna(0, inplace=True)
-data['DIFFCARE'].fillna(0, inplace=True)
+cleaned_data['AGE'].fillna(cleaned_data['AGE'].median(), inplace=True)
+cleaned_data['INCTOT'].fillna(0, inplace=True)
+cleaned_data['DIFFMOB'].fillna(0, inplace=True)
+cleaned_data['DIFFCARE'].fillna(0, inplace=True)
 
 #5 Filter for individuals aged 65 and older
-data = data[data['AGE'] >= 65]
+cleaned_data = cleaned_data[cleaned_data['AGE'] >= 65]
 
 #6 Create Housing Burden column *
-data['Housing_Burden'] = (data['RENTGRS'] / data['INCTOT']) * 100
+cleaned_data['Housing_Burden'] = (cleaned_data['RENTGRS'] / cleaned_data['INCTOT']) * 100
 # Handle infinite values
-data['Housing_Burden'].replace([np.inf, -np.inf], np.nan, inplace=True)  
+cleaned_data['Housing_Burden'].replace([np.inf, -np.inf], np.nan, inplace=True)  
  # Assume 0 burden for undefined cases
-data['Housing_Burden'].fillna(0, inplace=True) 
+cleaned_data['Housing_Burden'].fillna(0, inplace=True) 
 
 # 7: Summary of missing values and cleaned variables
 print("Summary of missing values after cleaning:")
-print(data.isnull().sum())
+print(cleaned_data.isnull().sum())
 
 print("\nData overview after cleaning:")
-print(data.describe())
+print(cleaned_data.describe())
+
+```
+
+Partner 2: Perform initial data exploration.
+1. Calculate descriptive statistics for key variables (AGE, INCTOT, RENTGRS, Housing_Burden, DIFFMOB, DIFFCARE).
+2. Add state abbreviation column by matching state FIPS to state abbreviations.
+3. Group data by STATEFIP and calculate average housing burden for older adults.
+4. Draw a bar chart to visualize the distribution of housing burdens by state.
+
+Deliverables:
+Summary statistics 
+cleaned_data.csv
+State-level table showing average housing burden and total elderly population.
+
+```{python}
+# Descriptive statistics calculation
+stats_summary = cleaned_data[['AGE', 'INCTOT', 'RENTGRS',
+                              'Housing_Burden', 'DIFFMOB', 'DIFFCARE']].describe().round(2)
+print(stats_summary)
+```
+
+```{python}
+path_2 = os.path.join(base_path, "states_fips.csv")
+df_states = pd.read_csv(path_2)
+df_states=df_states.rename(columns={'Postal':'State_name'})
+# Match state FIPS to state abbreviation
+cleaned_data = pd.merge(cleaned_data, df_states,
+                        left_on='STATEFIP', right_on='FIPS', how='left')
+cleaned_data = cleaned_data.drop('FIPS', axis=1)
+```
+
+```{python}
+# Save cleaned dataframe as .csv
+cleaned_data.to_csv('cleaned_data.csv')
 
 ```
 
 ```{python}
-output_path = '/Users/apple/Desktop/class/Dap-2/problem_sets/final_project/cleaned_data.csv'
-print(f"DataFrame saved locally as {output_path}")
+# Aggregate average housing burden and total elderly population per state
+state_summary_hb = cleaned_data.groupby('State_name').agg(
+    avg_housing_burden=('Housing_Burden', 'mean'),
+    total_elderly_population=('AGE', 'count')
+).reset_index()
+print(state_summary_hb)
 ```
 
-Partner 2: Perform initial data exploration.
-Calculate descriptive statistics for key variables (AGE, INCTOT, RENTGRS, etc.).
-Group data by STATEFIP and calculate average housing burden for older adults.
-Deliverables:
-Summary statistics.
-State-level table showing average housing burden and total elderly population.
+```{python}
+# Sort by average housing burden
+state_summary_sorted_hb = state_summary_hb.sort_values(
+    by='avg_housing_burden', ascending=False).reset_index(drop=True)
+print(state_summary_sorted_hb)
+
+# Bar chart for distribution of housing burden by state
+chart_housing_burden = alt.Chart(state_summary_sorted_hb).mark_bar().encode(
+    x=alt.X('avg_housing_burden:Q', title='Average Housing Burden (%)'),
+    y=alt.Y('State_name:N', title='State Abbr.', sort='-x'),
+    tooltip=['State_name', 'avg_housing_burden']
+).configure_axis(
+    labelFontSize=6,
+    titleFontSize=10
+).properties(
+    title='Average Housing Burden Distribution by State (2023)',
+    width=700,
+    height=500
+)
+
+chart_housing_burden.display()
+```
+
