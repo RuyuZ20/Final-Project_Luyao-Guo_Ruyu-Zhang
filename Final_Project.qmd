@@ -73,7 +73,7 @@ Cleaned data ready for analysis.
 Summary of missing values and cleaned variables.
 
 ```{python}
-base_path = '/Users/apple/Desktop/class/Dap-2/problem_sets'
+base_path = '/Users/ruyuzhang/Desktop/PPHA 30538'
 path_1=os.path.join(base_path,"usa_00003.csv")
 df_raw_data = pd.read_csv(path_1)
 ```
@@ -89,8 +89,8 @@ Extract columns as needed
 
 ```{python}
 #1
-columns_needed = ['YEAR', 'STATEFIP', 'AGE', 'RENTGRS', 'INCTOT', 'DIFFMOB', 'DIFFCARE']
-cleaned_data = pd.read_csv(file_path, usecols=columns_needed)
+columns_needed = ['YEAR', 'STATEFIP', 'AGE', 'RENTGRS', 'INCTOT', 'POVERTY','DIFFMOB', 'DIFFCARE']
+cleaned_data = pd.read_csv(path_1, usecols=columns_needed)
 print(cleaned_data.info())
 ```
 
@@ -120,6 +120,8 @@ cleaned_data['AGE'].fillna(cleaned_data['AGE'].median(), inplace=True)
 cleaned_data['INCTOT'].fillna(0, inplace=True)
 cleaned_data['DIFFMOB'].fillna(0, inplace=True)
 cleaned_data['DIFFCARE'].fillna(0, inplace=True)
+cleaned_data['POVERTY'].fillna(0, inplace=True)
+
 
 #5 Filter for individuals aged 65 and older
 cleaned_data = cleaned_data[cleaned_data['AGE'] >= 65]
@@ -137,7 +139,6 @@ print(cleaned_data.isnull().sum())
 
 print("\nData overview after cleaning:")
 print(cleaned_data.describe())
-
 ```
 
 Partner 2: Perform initial data exploration.
@@ -149,23 +150,22 @@ Partner 2: Perform initial data exploration.
 Deliverables:
 Summary statistics 
 cleaned_data.csv
-State-level table showing average housing burden and total elderly population.
+State-level table showing average housing burden and total elderly population
 
 ```{python}
 # Descriptive statistics calculation
 stats_summary = cleaned_data[['AGE', 'INCTOT', 'RENTGRS',
-                              'Housing_Burden', 'DIFFMOB', 'DIFFCARE']].describe().round(2)
+                              'Housing_Burden','POVERTY', 'DIFFMOB', 'DIFFCARE']].describe().round(2)
 print(stats_summary)
 ```
 
 ```{python}
 path_2 = os.path.join(base_path, "states_fips.csv")
 df_states = pd.read_csv(path_2)
-df_states=df_states.rename(columns={'Postal':'State_name'})
+df_states=df_states.rename(columns={'Postal':'State','State':'State_name'})
 # Match state FIPS to state abbreviation
 cleaned_data = pd.merge(cleaned_data, df_states,
                         left_on='STATEFIP', right_on='FIPS', how='left')
-cleaned_data = cleaned_data.drop('FIPS', axis=1)
 ```
 
 ```{python}
@@ -176,9 +176,10 @@ cleaned_data.to_csv('cleaned_data.csv')
 
 ```{python}
 # Aggregate average housing burden and total elderly population per state
-state_summary_hb = cleaned_data.groupby('State_name').agg(
+state_summary_hb = cleaned_data.groupby('State').agg(
     avg_housing_burden=('Housing_Burden', 'mean'),
-    total_elderly_population=('AGE', 'count')
+    total_elderly_population=('AGE', 'count'),
+    STATEFP=('STATEFIP', 'first') 
 ).reset_index()
 print(state_summary_hb)
 ```
@@ -192,8 +193,8 @@ print(state_summary_sorted_hb)
 # Bar chart for distribution of housing burden by state
 chart_housing_burden = alt.Chart(state_summary_sorted_hb).mark_bar().encode(
     x=alt.X('avg_housing_burden:Q', title='Average Housing Burden (%)'),
-    y=alt.Y('State_name:N', title='State Abbr.', sort='-x'),
-    tooltip=['State_name', 'avg_housing_burden']
+    y=alt.Y('State:N', title='State Abbr.', sort='-x'),
+    tooltip=['State', 'avg_housing_burden']
 ).configure_axis(
     labelFontSize=6,
     titleFontSize=10
@@ -215,39 +216,74 @@ consistently for merging.
 housing burden data for older adults.
 3. Create a choropleth map to highlight state-level variations in average housing burden, 
 with an optimized legend and layout for better readability.
+
 ```{python}
 import geopandas as gpd
 import matplotlib.pyplot as plt
 # 1: Load the shapefile
-shapefile_path = '/Users/apple/Desktop/class/Dap-2/problem_sets/tl_2023_us_state/tl_2023_us_state.shp'
+shapefile_path = os.path.join(base_path,"tl_2023_us_state.shp")
 gdf_states = gpd.read_file(shapefile_path)
 gdf_states['STATEFP'] = gdf_states['STATEFP'].astype(int)
 
-# 2: Ensure `state_summary_hb` includes `STATEFP` for merging
-state_summary_hb = state_summary_hb.rename(columns={"State_name": "State", "STATEFIP": "STATEFP"})
 state_summary_hb['STATEFP'] = state_summary_hb['STATEFP'].astype(int)
+```
 
-# 3: Merge `state_summary_hb` with `gdf_states`
+```{python}
+# 2: Merge `state_summary_hb` with `gdf_states`
 merged_gdf = gdf_states.merge(state_summary_hb, on='STATEFP', how='left')
-# 4: Plot the choropleth map
-fig, ax = plt.subplots(1, 1, figsize=(24, 12))
-map_plot = merged_gdf.plot(
+```
+
+```{python}
+# 3: Plot the choropleth map
+fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+
+merged_gdf.plot(
     column='avg_housing_burden',
+    ax=ax,
     cmap='OrRd',
+    edgecolor='0.8',
     legend=True,
     legend_kwds={
-        'label': "Average Housing Burden (%)",
-        'orientation': "horizontal",
-        'shrink': 0.6,
-        'pad': 0.05
-    },
-    edgecolor='black',
-    ax=ax
-)
-ax.set_title("Average Housing Burden by State (2023)", fontsize=24)
-ax.set_axis_off()
-# Adjust layout 
-plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.1)
+        'label': "Housing Burden (%)",  
+        'orientation': "vertical"      
+    }
+).set_axis_off()
+
+ax.set_xlim([-180, -50])
+ax.set_ylim([15, 75])
+
+plt.title("Average Housing Burden by State (2023)", fontsize=15)
+
 plt.show()
+```
+
+
+(Partner 2): Analyze high-burden states.
+1. Identify states with the top 10 highest average housing burdens.
+2. Compare demographic and socioeconomic factors (e.g., poverty rates, mobility issues) between high- and low-burden states.
+
+Deliverables:
+List of top 10 high-burden states.
+Summary of key differences between high- and low-burden states.
+
+```{python}
+top_10_high_burden = state_summary_sorted_hb.head (10)
+print (top_10_high_burden)
+```
+
+```{python}
+# Calculate averages for the top 10 states vs. others
+high_burden_states = top_10_high_burden['STATEFP'].unique()
+cleaned_data['Is_High_Burden'] = cleaned_data['STATEFIP'].isin(high_burden_states)
+
+# Group by high-burden status
+comparison_summary = cleaned_data.groupby('Is_High_Burden').agg(
+    avg_mobility_issues=('DIFFMOB', 'mean'),
+    avg_self_care_difficulty=('DIFFCARE', 'mean'),
+    avg_poverty_rate=('POVERTY', 'mean') 
+).reset_index()
+
+# Display the summary
+print(comparison_summary)
 ```
 
