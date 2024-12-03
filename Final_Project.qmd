@@ -22,41 +22,44 @@ output:
 
 Data Dictionary:
 YEAR  Census year 
-SAMPLE	IPUMS sample identifier
-SERIAL	Household serial number 
-CBSERIAL	Original Census Bureau household serial number
-HHWT	Household weight
-CLUSTER	Household cluster for variance estimation
-COUNTYFIP	County (FIPS code, identifiable counties only)
-CITY	City (identifiable cities only)
-STRATA	Household strata for variance estimation
-GQ	Group quarters status
-NFAMS	Number of families in household
-PERNUM	Person number in sample unit 
-PERWT	  Person weight
-RELATE	Relationship to household head
-SEX	  Sex
-MARST	Marital status
-RACE	Race
-EDUC	Educational attainment
-EMPSTAT	Employment status
-FTOTINC	Total family income
-POVERTY	Poverty status
-INCEARN	Total personal earned income
-STATEFIP	State (FIPS code)
-AGE	    Age
-RENTGRS	Monthly gross rent
-INCTOT	Total personal income
-DIFFMOB	Independent living difficulty
-DIFFCARE	Self-care difficulty
+SAMPLE  IPUMS sample identifier
+SERIAL  Household serial number 
+CBSERIAL  Original Census Bureau household serial number
+HHWT  Household weight
+CLUSTER Household cluster for variance estimation
+COUNTYFIP County (FIPS code, identifiable counties only)
+CITY  City (identifiable cities only)
+STRATA  Household strata for variance estimation
+GQ  Group quarters status
+NFAMS Number of families in household
+PERNUM  Person number in sample unit 
+PERWT   Person weight
+RELATE  Relationship to household head
+SEX   Sex
+MARST Marital status
+RACE  Race
+EDUC  Educational attainment
+EMPSTAT Employment status
+FTOTINC Total family income
+POVERTY Poverty status
+INCEARN Total personal earned income
+STATEFIP  State (FIPS code)
+AGE     Age
+RENTGRS Monthly gross rent
+INCTOT  Total personal income
+DIFFMOB Independent living difficulty
+DIFFCARE  Self-care difficulty
 
 ```{python}
+from shiny import App, ui, render, reactive 
 import pandas as pd
+import geopandas as gpd
+import matplotlib.pyplot as plt
 import altair as alt
 import numpy as np
-import warnings
 import os
-warnings.filterwarnings('ignore')
+import warnings
+warnings.filterwarnings("ignore")
 alt.renderers.enable("png")
 ```
 
@@ -73,23 +76,22 @@ Cleaned data ready for analysis.
 Summary of missing values and cleaned variables.
 
 ```{python}
-base_path = '/Users/ruyuzhang/Desktop/PPHA 30538'
-path_1=os.path.join(base_path,"usa_00003.csv")
-df_raw_data = pd.read_csv(path_1)
+base_path = "/Users/apple/Desktop/class/Dap-2/problem_sets/final_project/Untitled/Final-Project_Luyao-Guo_Ruyu-Zhang"
+path_1 = os.path.join(base_path, "usa_00003.csv")
+path_2 = os.path.join(base_path, "states_fips.csv")
+shapefile_path = os.path.join(base_path, "tl_2023_us_state.shp")
+
+print(f"USA Data Path: {path_1}")
+print(f"FIPS Data Path: {path_2}")
+print(f"Shapefile Path: {shapefile_path}")
 ```
 
-```{python}
-print(df_raw_data.head())
-
-# Print the column names
-print(df_raw_data.columns.tolist())
-```
 
 Extract columns as needed
 
 ```{python}
 #1
-columns_needed = ['YEAR', 'STATEFIP', 'AGE', 'RENTGRS', 'INCTOT', 'POVERTY','DIFFMOB', 'DIFFCARE']
+columns_needed = ['YEAR', 'STATEFIP', 'AGE', 'RENTGRS', 'INCTOT', 'POVERTY', 'DIFFMOB', 'DIFFCARE']
 cleaned_data = pd.read_csv(path_1, usecols=columns_needed)
 print(cleaned_data.info())
 ```
@@ -99,10 +101,8 @@ print(cleaned_data.info())
 # Replace NaN
 placeholder_values = [9999999, 0]
 cleaned_data.replace(placeholder_values, np.nan, inplace=True)
-
 # Check NaN
 print(cleaned_data.isnull().sum())
-
 ```
 
 
@@ -160,7 +160,6 @@ print(stats_summary)
 ```
 
 ```{python}
-path_2 = os.path.join(base_path, "states_fips.csv")
 df_states = pd.read_csv(path_2)
 df_states=df_states.rename(columns={'Postal':'State','State':'State_name'})
 # Match state FIPS to state abbreviation
@@ -168,11 +167,6 @@ cleaned_data = pd.merge(cleaned_data, df_states,
                         left_on='STATEFIP', right_on='FIPS', how='left')
 ```
 
-```{python}
-# Save cleaned dataframe as .csv
-cleaned_data.to_csv('cleaned_data.csv')
-
-```
 
 ```{python}
 # Aggregate average housing burden and total elderly population per state
@@ -218,18 +212,14 @@ housing burden data for older adults.
 with an optimized legend and layout for better readability.
 
 ```{python}
-import geopandas as gpd
-import matplotlib.pyplot as plt
 # 1: Load the shapefile
-shapefile_path = os.path.join(base_path,"tl_2023_us_state.shp")
 gdf_states = gpd.read_file(shapefile_path)
 gdf_states['STATEFP'] = gdf_states['STATEFP'].astype(int)
-
-state_summary_hb['STATEFP'] = state_summary_hb['STATEFP'].astype(int)
 ```
 
 ```{python}
 # 2: Merge `state_summary_hb` with `gdf_states`
+state_summary_hb['STATEFP'] = state_summary_hb['STATEFP'].astype(int)
 merged_gdf = gdf_states.merge(state_summary_hb, on='STATEFP', how='left')
 ```
 
@@ -287,3 +277,21 @@ comparison_summary = cleaned_data.groupby('Is_High_Burden').agg(
 print(comparison_summary)
 ```
 
+
+
+Step 3: Shiny App Development
+(Partner 1): Build an interactive map.
+Use the GeoDataFrame to create an interactive map in the Shiny app.
+Include options to filter by housing burden, poverty, or mobility issues.
+Deliverables:
+Working map with interactivity (e.g., tooltips or filters).
+Prepare for shiny
+
+```{python}
+# Ensure merged_gdf is defined before the app
+state_summary_hb['STATEFP'] = state_summary_hb['STATEFP'].astype(int)
+merged_gdf = gdf_states.merge(state_summary_hb, on='STATEFP', how='left')
+print(merged_gdf.columns)
+# Inspect  
+print(merged_gdf.head()) 
+```
