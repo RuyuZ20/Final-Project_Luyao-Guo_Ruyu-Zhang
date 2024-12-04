@@ -3,25 +3,16 @@ import pandas as pd
 import geopandas as gpd
 import plotly.express as px
 import tempfile
+import os
 
 # Paths for input files
-csv_path = "/Users/apple/Desktop/class/Dap-2/problem_sets/final_project/Untitled/Final-Project_Luyao-Guo_Ruyu-Zhang/shiny-app/cleaned_data.csv"
-shapefile_path = "/Users/apple/Desktop/class/Dap-2/problem_sets/final_project/Untitled/Final-Project_Luyao-Guo_Ruyu-Zhang/shiny-app/tl_2023_us_state.shp"
+base_path = '/Users/ruyuzhang/Desktop/PPHA 30538'
+csv_path = os.path.join(base_path, "cleaned_data.csv")
+shapefile_path = os.path.join(base_path, "tl_2023_us_state.shp")
 
 # Load cleaned data
 def load_cleaned_data(csv_path):
     cleaned_data = pd.read_csv(csv_path)
-
-    # Ensure necessary columns exist
-    if 'Housing_Burden' not in cleaned_data.columns:
-        cleaned_data['Housing_Burden'] = (cleaned_data['RENTGRS'] / cleaned_data['INCTOT']) * 100
-        cleaned_data['Housing_Burden'].replace([float('inf'), -float('inf')], 0, inplace=True)
-        cleaned_data['Housing_Burden'].fillna(0, inplace=True)
-
-    # Fill missing values for relevant columns
-    cleaned_data['INCTOT'].fillna(0, inplace=True)
-    cleaned_data['AGE'].fillna(0, inplace=True)
-
     return cleaned_data
 
 # GeoDataFrame merging function
@@ -51,34 +42,56 @@ merged_gdf = merge_geodata(cleaned_data, shapefile_path)
 # Shiny app UI
 app_ui = ui.page_fluid(
     ui.panel_title("Housing Burden Among Older Adults"),
-    ui.input_select(
-        id="metric",
-        label="Select Metric",
-        choices={
-            "avg_housing_burden": "Average Housing Burden",
-            "total_elderly_population": "Total Elderly Population",
-            "avg_income": "Average Income",
-        },
-        selected="avg_housing_burden",
+    
+    # Input selectors at the top
+    ui.row(
+        ui.column(
+            4,  
+            ui.input_select(
+                id="metric",
+                label="Select Metric",
+                choices={
+                    "avg_housing_burden": "Average Housing Burden",
+                    "total_elderly_population": "Total Elderly Population",
+                    "avg_income": "Average Income",
+                },
+                selected="avg_housing_burden",
+            ),
+            ui.input_radio_buttons(
+                id="view_mode",
+                label="View Mode",
+                choices={
+                    "us_plot": "US Plot",
+                    "state_plot": "State Plot",
+                },
+                selected="us_plot"
+            ),
+            ui.input_select(
+                id="state",
+                label="Select State (for State Plot)",
+                choices={int(row.STATEFP): str(row.NAME) for _, row in merged_gdf.iterrows()},
+                selected=int(merged_gdf.iloc[0]["STATEFP"])
+            )
+        )
     ),
-    ui.input_radio_buttons(
-        id="view_mode",
-        label="View Mode",
-        choices={
-            "us_plot": "US Plot",
-            "state_plot": "State Plot",
-        },
-        selected="us_plot"
-    ),
-    ui.input_select(
-        id="state",
-        label="Select State (for State Plot)",
-        choices={int(row.STATEFP): str(row.NAME) for _, row in merged_gdf.iterrows()},
-        selected=int(merged_gdf.iloc[0]["STATEFP"])
-    ),
-    ui.output_image("dynamic_plot"),
-    ui.output_text("state_info")
+    
+    ui.row(
+        ui.column(
+            6, 
+            ui.output_image("dynamic_plot", height="600px")
+        ),
+        ui.column(
+            6,  
+            ui.tags.div(
+                ui.output_text("state_info"),
+                style="white-space: normal; max-width: 100%;"
+            )
+        )
+    )
 )
+
+
+
 
 # Shiny app server
 def server(input, output, session):
@@ -103,11 +116,31 @@ def server(input, output, session):
                 labels={metric: metric_label},
                 title=f"{metric_label} by State"
             )
-            fig.update_geos(fitbounds="locations", visible=False)
+            fig.update_geos(
+                fitbounds="geojson",
+                visible=False,
+                projection_scale=2.0  
+            )
+            fig.update_layout(
+                height=800,  
+                width=1000,  
+                margin={"r": 0, "t": 0, "l": 0, "b": 0},  
+                coloraxis_colorbar=dict(
+                    title=metric_label,
+                    ticks="outside"
+                )
+            )
         else:
             # Create the state-specific Plotly map
             selected_state_fp = input.state()
             state_data = cleaned_data[cleaned_data['STATEFIP'] == int(selected_state_fp)]
+
+            # Debugging: Check for extreme or invalid values in Housing_Burden
+            print("Descriptive statistics for Housing_Burden in selected state:")
+            print(state_data['Housing_Burden'].describe())
+            print("Rows with Housing_Burden > 100%:")
+            print(state_data[state_data['Housing_Burden'] > 100])
+
 
             fig = px.histogram(
                 state_data,
@@ -130,18 +163,25 @@ def server(input, output, session):
             selected_state_fp = input.state()
             state_data = cleaned_data[cleaned_data['STATEFIP'] == int(selected_state_fp)]
 
+            # Calculate statistics
             avg_burden = state_data["Housing_Burden"].mean()
             total_population = len(state_data)
             avg_income = state_data["INCTOT"].mean()
+            max_burden = state_data["Housing_Burden"].max()
+            min_burden = state_data["Housing_Burden"].min()
 
             state_name = merged_gdf.loc[merged_gdf["STATEFP"] == int(selected_state_fp), "NAME"].values[0]
+
+            # Display statistics with line breaks
             return (
-                f"State: {state_name}\n"
-                f"Average Housing Burden: {avg_burden:.2f}%\n"
-                f"Total Elderly Population: {total_population}\n"
+                f"State: {state_name}"
+                f"Average Housing Burden: {avg_burden:.2f}%"
+                f"Total Elderly Population: {total_population}"
                 f"Average Income: ${avg_income:.2f}"
+                f"Max Housing Burden: {max_burden:.2f}%"
+                f"Min Housing Burden: {min_burden:.2f}%"
             )
-        return "Select a state to see details."
+        return 
 
 # Shiny app initialization
 app = App(app_ui, server)
