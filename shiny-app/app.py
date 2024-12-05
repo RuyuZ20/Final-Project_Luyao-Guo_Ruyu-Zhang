@@ -1,8 +1,8 @@
 from shiny import App, ui, render
+from htmltools import HTML
+import plotly.express as px
 import pandas as pd
 import geopandas as gpd
-import plotly.express as px
-import tempfile
 import os
 
 # Paths for input files
@@ -78,7 +78,7 @@ app_ui = ui.page_fluid(
     ui.row(
         ui.column(
             6, 
-            ui.output_image("dynamic_plot", height="600px")
+            ui.output_ui("dynamic_plot")
         ),
         ui.column(
             6,  
@@ -90,13 +90,10 @@ app_ui = ui.page_fluid(
     )
 )
 
-
-
-
 # Shiny app server
 def server(input, output, session):
     @output
-    @render.image
+    @render.ui
     def dynamic_plot():
         metric = input.metric()
         metric_label = {
@@ -119,17 +116,23 @@ def server(input, output, session):
             fig.update_geos(
                 fitbounds="geojson",
                 visible=False,
-                projection_scale=2.0  
+                projection_scale=4,
+                center={"lon": -115, "lat": 40},  # Center on the US
+                lonaxis_range=[-180, -50],  # Longitude limits
+                lataxis_range=[15, 75]   
             )
             fig.update_layout(
-                height=800,  
-                width=1000,  
-                margin={"r": 0, "t": 0, "l": 0, "b": 0},  
+                height=900,  
+                width=1200,  
+                margin={"r": 100, "t": 50, "l": 50, "b": 50},  
                 coloraxis_colorbar=dict(
                     title=metric_label,
-                    ticks="outside"
+                    ticks="outside",
+                    len=0.4,
+                    y=0.5
                 )
             )
+            return HTML(fig.to_html(full_html=False))
         else:
             # Create the state-specific Plotly map
             selected_state_fp = input.state()
@@ -150,11 +153,7 @@ def server(input, output, session):
                 labels={"Housing_Burden": "Housing Burden (%)"}
             )
             fig.update_layout(xaxis_title="Housing Burden (%)", yaxis_title="Count")
-
-        # Save the plot to a temporary file
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp:
-            fig.write_image(temp.name)
-            return {"src": temp.name, "alt": metric_label}
+            return HTML(fig.to_html(full_html=False))
 
     @output
     @render.text
@@ -174,11 +173,11 @@ def server(input, output, session):
 
             # Display statistics with line breaks
             return (
-                f"State: {state_name}"
-                f"Average Housing Burden: {avg_burden:.2f}%"
-                f"Total Elderly Population: {total_population}"
-                f"Average Income: ${avg_income:.2f}"
-                f"Max Housing Burden: {max_burden:.2f}%"
+                f"State: {state_name}\n"
+                f"Average Housing Burden: {avg_burden:.2f}%\n"
+                f"Total Elderly Population: {total_population}\n"
+                f"Average Income: ${avg_income:.2f}\n"
+                f"Max Housing Burden: {max_burden:.2f}%\n"
                 f"Min Housing Burden: {min_burden:.2f}%"
             )
         return 
