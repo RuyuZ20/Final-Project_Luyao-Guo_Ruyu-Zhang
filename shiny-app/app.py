@@ -1,8 +1,8 @@
 from shiny import App, ui, render
-from htmltools import HTML
-import plotly.express as px
 import pandas as pd
 import geopandas as gpd
+import plotly.express as px
+import tempfile
 import os
 
 # Paths for input files
@@ -78,7 +78,7 @@ app_ui = ui.page_fluid(
     ui.row(
         ui.column(
             6, 
-            ui.output_ui("dynamic_plot")
+            ui.output_image("dynamic_plot")
         ),
         ui.column(
             6,  
@@ -93,7 +93,7 @@ app_ui = ui.page_fluid(
 # Shiny app server
 def server(input, output, session):
     @output
-    @render.ui
+    @render.image
     def dynamic_plot():
         metric = input.metric()
         metric_label = {
@@ -132,7 +132,6 @@ def server(input, output, session):
                     y=0.5
                 )
             )
-            return HTML(fig.to_html(full_html=False))
         else:
             # Create the state-specific Plotly map
             selected_state_fp = input.state()
@@ -153,7 +152,12 @@ def server(input, output, session):
                 labels={"Housing_Burden": "Housing Burden (%)"}
             )
             fig.update_layout(xaxis_title="Housing Burden (%)", yaxis_title="Count")
-            return HTML(fig.to_html(full_html=False))
+
+            # Save the plot to a temporary file
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp:
+            fig.write_image(temp.name)
+            return {"src": temp.name, "alt": metric_label}
+
 
     @output
     @render.text
