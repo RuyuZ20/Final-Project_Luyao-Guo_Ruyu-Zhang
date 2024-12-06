@@ -51,7 +51,6 @@ DIFFMOB Independent living difficulty
 DIFFCARE  Self-care difficulty
 
 ```{python}
-from shiny import App, ui, render, reactive 
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -60,24 +59,13 @@ import numpy as np
 import os
 import warnings
 warnings.filterwarnings("ignore")
-alt.renderers.enable("png")
 ```
 
-Step 1: Data Cleaning and Initial Exploration
-
-(Partner 1): 
-1. Handle placeholder values and clean the data.
-2. Identify and replace placeholder values like 9999999 with NaN.
-3. Filter the dataset for individuals aged 65+.
-4. Create a new column for Housing_Burden (e.g., RENTGRS / INCTOT * 100).
-
-Deliverables:
-Cleaned data ready for analysis.
-Summary of missing values and cleaned variables.
+Data Cleaning 
 
 ```{python}
-base_path = "/Users/apple/Desktop/class/Dap-2/problem_sets/final_project/Untitled/Final-Project_Luyao-Guo_Ruyu-Zhang"
-path_1 = os.path.join(base_path, "usa_00003.csv")
+base_path = '/Users/ruyuzhang/Desktop/PPHA 30538'
+path_1 = os.path.join(base_path, "usa_00004.csv")
 path_2 = os.path.join(base_path, "states_fips.csv")
 shapefile_path = os.path.join(base_path, "tl_2023_us_state.shp")
 
@@ -86,18 +74,18 @@ print(f"FIPS Data Path: {path_2}")
 print(f"Shapefile Path: {shapefile_path}")
 ```
 
-
-Extract columns as needed
+```{python}
+raw_data = pd.read_csv(path_1)
+```
 
 ```{python}
-#1
-columns_needed = ['YEAR', 'STATEFIP', 'AGE', 'RENTGRS', 'INCTOT', 'POVERTY', 'DIFFMOB', 'DIFFCARE']
-cleaned_data = pd.read_csv(path_1, usecols=columns_needed)
+#Extract columns as needed
+columns_needed = ['YEAR', 'STATEFIP', 'AGE', 'RENTGRS', 'INCTOT', 'FAMSIZE','POVERTY', 'DIFFMOB', 'DIFFCARE']
+cleaned_data = raw_data[columns_needed].copy()
 print(cleaned_data.info())
 ```
 
 ```{python}
-#2
 # Replace NaN
 placeholder_values = [9999999, 0]
 cleaned_data.replace(placeholder_values, np.nan, inplace=True)
@@ -105,74 +93,123 @@ cleaned_data.replace(placeholder_values, np.nan, inplace=True)
 print(cleaned_data.isnull().sum())
 ```
 
-
- Drop Columns with Excessive Missing Values
-
 ```{python}
-#3
-# drop missing values rentgers
-cleaned_data = cleaned_data.dropna(subset=['RENTGRS'])
-print(cleaned_data.isnull().sum())
+#  Drop Columns with Excessive Missing Values
+cleaned_data = cleaned_data.dropna(
+    subset=['RENTGRS', 'INCTOT', 'AGE', 'FAMSIZE', 'POVERTY', 'DIFFMOB', 'DIFFCARE'])
 
-#4
-# Fill in other missing values with default values
-cleaned_data['AGE'].fillna(cleaned_data['AGE'].median(), inplace=True)
-cleaned_data['INCTOT'].fillna(0, inplace=True)
-cleaned_data['DIFFMOB'].fillna(0, inplace=True)
-cleaned_data['DIFFCARE'].fillna(0, inplace=True)
-cleaned_data['POVERTY'].fillna(0, inplace=True)
+# Filter for individuals aged 65 and older and with income above $5000
+cleaned_data = cleaned_data[(cleaned_data['AGE'] >= 65) & (
+    cleaned_data['INCTOT'] > 5000)]
 
+# Drop rows where variables are 0
+cleaned_data = cleaned_data[(cleaned_data['POVERTY'] > 0) &
+                            (cleaned_data['FAMSIZE'] > 0) &
+                            (cleaned_data['DIFFMOB'] > 0) &
+                            (cleaned_data['DIFFCARE'] > 0)]
 
-#5 Filter for individuals aged 65 and older
-cleaned_data = cleaned_data[cleaned_data['AGE'] >= 65]
+# Calculate annual housing cost per individual
+cleaned_data['Annual_Housing_Cost'] = (
+    cleaned_data['RENTGRS'] * 12) / cleaned_data['FAMSIZE']
 
-#6 Create Housing Burden column *
-cleaned_data['Housing_Burden'] = (cleaned_data['RENTGRS'] / cleaned_data['INCTOT']) * 100
+# Calculate individual-level housing burden
+cleaned_data['Housing_Burden'] = (
+    cleaned_data['Annual_Housing_Cost'] / cleaned_data['INCTOT']) * 100
+
 # Handle infinite values
-cleaned_data['Housing_Burden'].replace([np.inf, -np.inf], np.nan, inplace=True)  
- # Assume 0 burden for undefined cases
-cleaned_data['Housing_Burden'].fillna(0, inplace=True) 
+cleaned_data['Housing_Burden'].replace([np.inf, -np.inf], np.nan, inplace=True)
+cleaned_data = cleaned_data.dropna(subset=['Housing_Burden'])
 
-# 7: Summary of missing values and cleaned variables
+# Summary of missing values and cleaned variables
 print("Summary of missing values after cleaning:")
 print(cleaned_data.isnull().sum())
 
 print("\nData overview after cleaning:")
-print(cleaned_data.describe())
-```
-
-Partner 2: Perform initial data exploration.
-1. Calculate descriptive statistics for key variables (AGE, INCTOT, RENTGRS, Housing_Burden, DIFFMOB, DIFFCARE).
-2. Add state abbreviation column by matching state FIPS to state abbreviations.
-3. Group data by STATEFIP and calculate average housing burden for older adults.
-4. Draw a bar chart to visualize the distribution of housing burdens by state.
-
-Deliverables:
-Summary statistics 
-cleaned_data.csv
-State-level table showing average housing burden and total elderly population
-
-```{python}
-# Descriptive statistics calculation
-stats_summary = cleaned_data[['AGE', 'INCTOT', 'RENTGRS',
-                              'Housing_Burden','POVERTY', 'DIFFMOB', 'DIFFCARE']].describe().round(2)
-print(stats_summary)
+print(cleaned_data.describe().round(2))
 ```
 
 ```{python}
 df_states = pd.read_csv(path_2)
-df_states=df_states.rename(columns={'Postal':'State','State':'State_name'})
+df_states = df_states.rename(
+    columns={'Postal': 'State', 'State': 'State_name'})
+
 # Match state FIPS to state abbreviation
 cleaned_data = pd.merge(cleaned_data, df_states,
                         left_on='STATEFIP', right_on='FIPS', how='left')
 ```
 
+```{python}
+# Save cleaned dataframe as .csv
+cleaned_data.to_csv('cleaned_data.csv')
+```
+
+
+Data Overview
+```{python}
+# Descriptive statistics calculation
+stats_summary = cleaned_data[['AGE', 'INCTOT', 'RENTGRS',
+                              'Housing_Burden', 'POVERTY', 'DIFFMOB', 'DIFFCARE']].describe().round(2)
+print(stats_summary)
+```
+
+```{python}
+# Identify individuals with significant housing cost burdens
+cleaned_data['Significant_Burden'] = cleaned_data['Housing_Burden'] > 30
+
+# Total elderly population
+total_elderly = cleaned_data.shape[0]
+
+# Elderly population with significant housing cost burdens
+elderly_with_burden = cleaned_data['Significant_Burden'].sum()
+
+# Percentage of elderly with significant housing cost burdens
+percentage_with_burden = (elderly_with_burden / total_elderly) * 100
+
+print(f"Total Elderly Population: {total_elderly}")
+print(f"Elderly Facing Significant Housing Cost Burden: {elderly_with_burden}")
+print(f"Percentage with Significant Housing Cost Burden: {
+      percentage_with_burden:.2f}%")
+```
+
+```{python}
+# Data for visualization
+labels = ['Significant Burden', 'No Significant Burden']
+values = [elderly_with_burden, total_elderly - elderly_with_burden]
+percentages = [100 * v / total_elderly for v in values]
+# Plot
+fig, ax = plt.subplots()
+bars = plt.bar(labels, values, color=['lightblue', 'blue'])
+
+# Add percentage labels above each bar
+for bar, percentage in zip(bars, percentages):
+    ax.text(
+        bar.get_x() + bar.get_width() / 2,
+        bar.get_height() + 5,
+        f'{percentage:.2f}%',
+        ha='center',
+        va='bottom',
+        fontsize=10
+    )
+
+# Chart details
+plt.title('Elderly Population Facing Significant Housing Cost Burdens')
+plt.ylabel('Number of Individuals')
+plt.ylim(0, max(values) * 1.2)
+plt.show()
+```
+
+Summary data by states
 
 ```{python}
 # Aggregate average housing burden and total elderly population per state
 state_summary_hb = cleaned_data.groupby('State').agg(
+    avg_gross_rent=('RENTGRS','mean'),
     avg_housing_burden=('Housing_Burden', 'mean'),
     total_elderly_population=('AGE', 'count'),
+    avg_poverty_rate=('POVERTY', 'mean'),
+    avg_mobility_issues=('DIFFMOB', 'mean'),
+    avg_self_care_difficulty=('DIFFCARE', 'mean'),
+    avg_income=('INCTOT', 'mean'),
     STATEFP=('STATEFIP', 'first') 
 ).reset_index()
 print(state_summary_hb)
@@ -183,7 +220,266 @@ print(state_summary_hb)
 state_summary_sorted_hb = state_summary_hb.sort_values(
     by='avg_housing_burden', ascending=False).reset_index(drop=True)
 print(state_summary_sorted_hb)
+```
 
+
+Linear Regression Models
+```{python}
+import statsmodels.api as sm
+
+# Predict Housing Burden using Poverty Rate and Elderly Population
+X = state_summary_hb[['avg_poverty_rate', 'total_elderly_population']]
+y = state_summary_hb['avg_housing_burden']
+
+# Add constant to the predictors (required for statsmodels)
+X = sm.add_constant(X)
+
+# Fit the regression model
+model = sm.OLS(y, X).fit()
+
+# Print the summary of the regression model
+print(model.summary())
+```
+
+```{python}
+# Scatterplot with regression line
+regression_chart_1 = alt.Chart(state_summary_hb).mark_circle(size=100).encode(
+    x=alt.X('avg_poverty_rate:Q', 
+            title='Average Poverty Rate',
+            scale=alt.Scale(domain=[100, 340]) 
+           ),
+    y=alt.Y('avg_housing_burden:Q', 
+            title='Average Housing Burden (%)',
+            scale=alt.Scale()  
+           ),
+     color=alt.Color('State:N', legend=None),
+    tooltip=['State', 'avg_poverty_rate', 'avg_housing_burden', 'total_elderly_population']
+).properties(
+    title=alt.TitleParams(
+        text='Linear Regression: Housing Burden vs. Poverty Rate',
+        anchor='middle',  
+        fontSize=16
+    ),
+    width=400,  
+    height=400  
+)
+
+# Add regression line
+regression_line = regression_chart_1.transform_regression(
+    'avg_poverty_rate', 'avg_housing_burden'
+).mark_line(color='red')
+
+# Combine scatterplot and regression line
+regression_combined_chart_1 = (regression_chart_1 + regression_line).configure_view(
+    stroke=None  
+).configure_title(
+    anchor='middle',  
+    fontSize=16
+)
+
+regression_combined_chart_1.display()
+```
+
+```{python}
+# Predict Housing Burden using Mobility Issue and Elderly Population
+X = state_summary_hb[['avg_mobility_issues', 'total_elderly_population']]
+y = state_summary_hb['avg_housing_burden']
+
+# Add constant to the predictors (required for statsmodels)
+X = sm.add_constant(X)
+
+# Fit the regression model
+model = sm.OLS(y, X).fit()
+
+# Print the summary of the regression model
+print(model.summary())
+```
+
+```{python}
+# Scatterplot with regression line
+regression_chart_2 = alt.Chart(state_summary_hb).mark_circle(size=100).encode(
+    x=alt.X('avg_mobility_issues:Q', 
+            title='Average Mobility Issues Score',
+            scale=alt.Scale(domain=[1, 1.5])  
+           ),
+    y=alt.Y('avg_housing_burden:Q', 
+            title='Average Housing Burden (%)',
+            scale=alt.Scale() 
+           ),
+    color=alt.Color('State:N', legend=None),
+    tooltip=['State', 'avg_mobility_issues', 'avg_housing_burden', 'total_elderly_population']
+).properties(
+    title=alt.TitleParams(
+        text='Linear Regression: Housing Burden vs. Mobility Issue',
+        anchor='middle',  
+        fontSize=16
+    ),
+    width=400,  
+    height=400  
+)
+
+# Add regression line
+regression_line = regression_chart_2.transform_regression(
+    'avg_mobility_issues', 'avg_housing_burden'
+).mark_line(color='red')
+
+# Combine scatterplot and regression line
+regression_combined_chart_2 = (regression_chart_2 + regression_line).configure_view(
+    stroke=None  
+).configure_title(
+    anchor='middle',  
+    fontSize=16
+)
+
+regression_combined_chart_2.display()
+```
+
+```{python}
+# Predict Housing Burden using Mobility Issue and Elderly Population
+X = state_summary_hb[['avg_self_care_difficulty', 'total_elderly_population']]
+y = state_summary_hb['avg_housing_burden']
+
+# Add constant to the predictors (required for statsmodels)
+X = sm.add_constant(X)
+
+# Fit the regression model
+model = sm.OLS(y, X).fit()
+
+# Print the summary of the regression model
+print(model.summary())
+```
+
+```{python}
+# Scatterplot with regression line
+regression_chart_3 = alt.Chart(state_summary_hb).mark_circle(size=100).encode(
+    x=alt.X('avg_self_care_difficulty:Q',
+            title='Average Self-care Score', 
+            scale=alt.Scale(domain=[1, 1.5])
+            ),
+    y=alt.Y('avg_housing_burden:Q', 
+        title='Average Housing Burden (%)'
+            ),
+    color=alt.Color('State:N', legend=None),
+    tooltip=['State', 'avg_self_care_difficulty',
+             'avg_housing_burden', 'total_elderly_population']
+).properties(
+    title=alt.TitleParams(
+        text='Linear Regression: Housing Burden vs. Self-care Issue',
+        anchor='middle',  
+        fontSize=16
+    ),
+    width=400,  
+    height=400  
+)
+
+# Add regression line
+regression_line = regression_chart_3.transform_regression(
+    'avg_self_care_difficulty', 'avg_housing_burden'
+).mark_line(color='red')
+
+# Combine scatterplot and regression line
+regression_combined_chart_3 = (regression_chart_3 + regression_line).configure_view(
+    stroke=None  
+).configure_title(
+    anchor='middle',  
+    fontSize=16
+)
+regression_combined_chart_3.display()
+```
+
+Multivariate Model
+
+```{python}
+# Select predictors and target variable
+predictors = ['avg_poverty_rate', 'total_elderly_population', 'avg_mobility_issues', 'avg_self_care_difficulty']
+target = 'avg_housing_burden'
+```
+
+```{python}
+# Select predictors and target variable
+X = state_summary_hb[predictors]
+y = state_summary_hb[target]
+
+# Add a constant for the regression intercept
+X = sm.add_constant(X)
+
+# Fit the regression model
+model = sm.OLS(y, X).fit()
+
+# Print the regression summary
+print(model.summary())
+```
+
+```{python}
+# Extract coefficients
+coefficients = model.params.reset_index()
+coefficients.columns = ['Predictor', 'Coefficient']
+
+print(coefficients)
+
+# Plot coefficients
+coefficient_chart = alt.Chart(coefficients).mark_bar().encode(
+    x=alt.X('Coefficient:Q', title='Coefficient Value'),
+    y=alt.Y('Predictor:N', title='Predictor', sort='-x'),
+    tooltip=['Predictor', 'Coefficient']
+).properties(
+    title='Regression Coefficients: Entire U.S.',
+    width=600,
+    height=400
+)
+
+coefficient_chart.display()
+```
+
+
+Geographic Distribution of Housing Burden
+```{python}
+# Define regional groups for U.S. states
+region_mapping = {
+    'Northeast': ['09', '23', '25', '33', '34', '36', '42', '44', '50', '10', '11'],  
+    'Midwest': ['17', '18', '19', '20', '26', '27', '29', '31', '38', '39', '46', '55'],  
+    'South': ['01', '05', '12', '13', '21', '22', '24', '28', '37', '40', '45', '47', '48', '51', '54'],
+    'West': ['02', '04', '06', '08', '15', '16', '30', '32', '35', '41', '49', '53', '56']  
+}
+
+# Function to assign regions based on STATEFIP
+def assign_region(state_fip):
+    for region, states in region_mapping.items():
+        if str(state_fip) in states:  
+            return region
+    return 'Unknown'
+
+# Add a 'Region' column to the cleaned data
+cleaned_data['Region'] = cleaned_data['STATEFIP'].apply(assign_region)
+```
+
+```{python}
+# Group by Region and calculate averages for key metrics
+regional_summary = cleaned_data.groupby('Region').agg(
+    avg_mobility_issues=('DIFFMOB', 'mean'),
+    avg_self_care_difficulty=('DIFFCARE', 'mean'),
+    avg_poverty_rate=('POVERTY', 'mean'),
+    avg_housing_burden=('Housing_Burden', 'mean')
+).reset_index()
+
+print(regional_summary)
+```
+
+```{python}
+chart_region = alt.Chart(regional_summary).mark_bar().encode(
+    x=alt.X('avg_housing_burden:Q', title='Average Housing Burden (%)'),
+    y=alt.Y('Region:N', title='Region', sort='-x'),
+    tooltip=['Region', 'avg_housing_burden', 'avg_poverty_rate', 'avg_mobility_issues']
+).properties(
+    title='Average Housing Burden by Region',
+    width=500,
+    height=200
+)
+
+chart_region.display()
+```
+
+```{python}
 # Bar chart for distribution of housing burden by state
 chart_housing_burden = alt.Chart(state_summary_sorted_hb).mark_bar().encode(
     x=alt.X('avg_housing_burden:Q', title='Average Housing Burden (%)'),
@@ -201,64 +497,25 @@ chart_housing_burden = alt.Chart(state_summary_sorted_hb).mark_bar().encode(
 chart_housing_burden.display()
 ```
 
-Step 2: Geographic Mapping with State Shapefiles
-
-(Partner 1):
-1. Load the U.S. state boundary shapefile and ensure relevant columns are formatted 
-consistently for merging.
-2. Merge the state boundary GeoDataFrame with the state-level dataset to integrate 
-housing burden data for older adults.
-3. Create a choropleth map to highlight state-level variations in average housing burden, 
-with an optimized legend and layout for better readability.
-
-```{python}
-# 1: Load the shapefile
-gdf_states = gpd.read_file(shapefile_path)
-gdf_states['STATEFP'] = gdf_states['STATEFP'].astype(int)
-```
-
-```{python}
-# 2: Merge `state_summary_hb` with `gdf_states`
-state_summary_hb['STATEFP'] = state_summary_hb['STATEFP'].astype(int)
-merged_gdf = gdf_states.merge(state_summary_hb, on='STATEFP', how='left')
-```
-
-```{python}
-# 3: Plot the choropleth map
-fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-
-merged_gdf.plot(
-    column='avg_housing_burden',
-    ax=ax,
-    cmap='OrRd',
-    edgecolor='0.8',
-    legend=True,
-    legend_kwds={
-        'label': "Housing Burden (%)",  
-        'orientation': "vertical"      
-    }
-).set_axis_off()
-
-ax.set_xlim([-180, -50])
-ax.set_ylim([15, 75])
-
-plt.title("Average Housing Burden by State (2023)", fontsize=15)
-
-plt.show()
-```
-
-
-(Partner 2): Analyze high-burden states.
-1. Identify states with the top 10 highest average housing burdens.
-2. Compare demographic and socioeconomic factors (e.g., poverty rates, mobility issues) between high- and low-burden states.
-
-Deliverables:
-List of top 10 high-burden states.
-Summary of key differences between high- and low-burden states.
-
 ```{python}
 top_10_high_burden = state_summary_sorted_hb.head (10)
 print (top_10_high_burden)
+
+# Bar chart for top 10 high housing burden states
+chart_top_10 = alt.Chart(top_10_high_burden).mark_bar().encode(
+    x=alt.X('avg_housing_burden:Q', title='Average Housing Burden (%)'),
+    y=alt.Y('State:N', title='State Abbr.', sort='-x'),
+    tooltip=['State', 'avg_housing_burden']
+).configure_axis(
+    labelFontSize=8,
+    titleFontSize=10
+).properties(
+    title='Top 10 highest housing burden state',
+    width=500,
+    height=300
+)
+
+chart_top_10.display()
 ```
 
 ```{python}
@@ -278,20 +535,57 @@ print(comparison_summary)
 ```
 
 
-
-Step 3: Shiny App Development
-(Partner 1): Build an interactive map.
-Use the GeoDataFrame to create an interactive map in the Shiny app.
-Include options to filter by housing burden, poverty, or mobility issues.
-Deliverables:
-Working map with interactivity (e.g., tooltips or filters).
-Prepare for shiny
+Standardized Test
 
 ```{python}
-# Ensure merged_gdf is defined before the app
-state_summary_hb['STATEFP'] = state_summary_hb['STATEFP'].astype(int)
-merged_gdf = gdf_states.merge(state_summary_hb, on='STATEFP', how='left')
-print(merged_gdf.columns)
-# Inspect  
-print(merged_gdf.head()) 
+# Create a copy of the regional summary for standardization
+standardized_diff = regional_summary.copy()
+
+# List of metrics to standardize
+metrics = ['avg_mobility_issues', 'avg_self_care_difficulty', 'avg_poverty_rate', 'avg_housing_burden']
+
+# Standardize metrics by calculating z-scores
+for metric in metrics:
+    mean_metric = regional_summary[metric].mean()
+    std_metric = regional_summary[metric].std()
+    standardized_diff[f'std_{metric}'] = (regional_summary[metric] - mean_metric) / std_metric
+
+# Display the standardized differences
+print(standardized_diff)
 ```
+
+```{python}
+# Ensure columns for folding exist
+columns_to_fold = [
+    'std_avg_mobility_issues',
+    'std_avg_self_care_difficulty',
+    'std_avg_poverty_rate',
+    'std_avg_housing_burden'
+]
+
+# Fold the data into long format for Altair
+folded_data = standardized_diff.melt(
+    id_vars=['Region'], 
+    value_vars=columns_to_fold, 
+    var_name='Metric', 
+    value_name='Standardized Value'
+)
+
+# Inspect the folded data
+print(folded_data.head())
+
+# Create the heatmap
+heatmap = alt.Chart(folded_data).mark_rect().encode(
+    x=alt.X('Metric:N', title='Metric'),
+    y=alt.Y('Region:N', title='Region'),
+    color=alt.Color('Standardized Value:Q', scale=alt.Scale(scheme='redblue')),
+    tooltip=['Region', 'Metric', 'Standardized Value']
+).properties(
+    title='Standardized Differences Across Regions',
+    width=400,
+    height=200
+)
+
+heatmap.display()
+```
+
