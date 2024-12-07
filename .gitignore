@@ -1,0 +1,9 @@
+# Ignore specific files in the project folder
+tl_2023_us_state.cpg
+tl_2023_us_state.dbf
+tl_2023_us_state.prj
+tl_2023_us_state.shp
+tl_2023_us_state.shp.ea.iso.xml
+tl_2023_us_state.shp.iso.xml
+tl_2023_us_state.shx
+usa_00004.csv
