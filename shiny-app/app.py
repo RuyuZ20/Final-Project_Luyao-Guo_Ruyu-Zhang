@@ -6,7 +6,7 @@ import tempfile
 import os
 
 # Paths for input files
-base_path = '/Users/apple/Desktop/class/Dap-2/problem_sets/final_project/Untitled/Final-Project_Luyao-Guo_Ruyu-Zhang/shiny-app'
+base_path = '/Users/apple/Desktop/class/Dap-2/problem_sets/final_project/Untitled/Final-Project_Luyao-Guo_Ruyu-Zhang'
 csv_path = os.path.join(base_path, "cleaned_data.csv")
 shapefile_path = os.path.join(base_path, "tl_2023_us_state.shp")
 
@@ -166,3 +166,7 @@ def server(input, output, session):
         return ""
 
 app = App(app_ui, server)
+
+
+
+
