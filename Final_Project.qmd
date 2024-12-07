@@ -1,6 +1,6 @@
 title: "Dap2 Final project-Housing Burden Among Older Adults"
 author: "Luyao Guo, Ruyu Zhang"
-date: "2024-11-20"
+date: "2024-12-07"
 format: 
   pdf:
     include-in-header: 
@@ -22,21 +22,8 @@ output:
 
 Data Dictionary:
 YEAR  Census year 
-SAMPLE  IPUMS sample identifier
-SERIAL  Household serial number 
-CBSERIAL  Original Census Bureau household serial number
-HHWT  Household weight
-CLUSTER Household cluster for variance estimation
-COUNTYFIP County (FIPS code, identifiable counties only)
-CITY  City (identifiable cities only)
-STRATA  Household strata for variance estimation
-GQ  Group quarters status
-NFAMS Number of families in household
-PERNUM  Person number in sample unit 
-PERWT   Person weight
-RELATE  Relationship to household head
 SEX   Sex
-MARST Marital status
+FAMSIZE The number of own family members residing with each individual, including the person her/himself.
 RACE  Race
 EDUC  Educational attainment
 EMPSTAT Employment status
@@ -94,13 +81,13 @@ print(cleaned_data.isnull().sum())
 ```
 
 ```{python}
-#  Drop Columns with Excessive Missing Values
+#  Drop Rows with Missing Values
 cleaned_data = cleaned_data.dropna(
     subset=['RENTGRS', 'INCTOT', 'AGE', 'FAMSIZE', 'POVERTY', 'DIFFMOB', 'DIFFCARE'])
 
 # Filter for individuals aged 65 and older and with income above $5000
 cleaned_data = cleaned_data[(cleaned_data['AGE'] >= 65) & (
-    cleaned_data['INCTOT'] > 5000)]
+    cleaned_data['INCTOT'] > 12000)]
 
 # Drop rows where variables are 0
 cleaned_data = cleaned_data[(cleaned_data['POVERTY'] > 0) &
@@ -436,10 +423,10 @@ Geographic Distribution of Housing Burden
 ```{python}
 # Define regional groups for U.S. states
 region_mapping = {
-    'Northeast': ['09', '23', '25', '33', '34', '36', '42', '44', '50', '10', '11'],  
+    'Northeast': ['9', '23', '25', '33', '34', '36', '42', '44', '50', '10', '11'],  
     'Midwest': ['17', '18', '19', '20', '26', '27', '29', '31', '38', '39', '46', '55'],  
-    'South': ['01', '05', '12', '13', '21', '22', '24', '28', '37', '40', '45', '47', '48', '51', '54'],
-    'West': ['02', '04', '06', '08', '15', '16', '30', '32', '35', '41', '49', '53', '56']  
+    'South': ['1', '5', '12', '13', '21', '22', '24', '28', '37', '40', '45', '47', '48', '51', '54'],
+    'West': ['2', '4', '6', '8', '15', '16', '30', '32', '35', '41', '49', '53', '56']  
 }
 
 # Function to assign regions based on STATEFIP
@@ -477,24 +464,6 @@ chart_region = alt.Chart(regional_summary).mark_bar().encode(
 )
 
 chart_region.display()
-```
-
-```{python}
-# Bar chart for distribution of housing burden by state
-chart_housing_burden = alt.Chart(state_summary_sorted_hb).mark_bar().encode(
-    x=alt.X('avg_housing_burden:Q', title='Average Housing Burden (%)'),
-    y=alt.Y('State:N', title='State Abbr.', sort='-x'),
-    tooltip=['State', 'avg_housing_burden']
-).configure_axis(
-    labelFontSize=6,
-    titleFontSize=10
-).properties(
-    title='Average Housing Burden Distribution by State (2023)',
-    width=700,
-    height=500
-)
-
-chart_housing_burden.display()
 ```
 
 ```{python}
