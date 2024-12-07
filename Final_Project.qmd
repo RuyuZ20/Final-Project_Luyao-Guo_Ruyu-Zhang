@@ -1,6 +1,7 @@
-title: "Dap2 Final project-Housing Burden Among Older Adults"
-author: "Luyao Guo, Ruyu Zhang"
-date: "2024-12-07"
+---
+title: "Final Project Writeup"
+author: "Luyao Guo (section 1, gluyao), Ruyu Zhang (section 1, RuyuZ20)"
+date: "Dec 7, 2024"
 format: 
   pdf:
     include-in-header: 
@@ -19,25 +20,16 @@ output:
   echo: false
   eval: false
 ---
+```{python}
+# | echo: false
+# | eval: false
 
-Data Dictionary:
-YEAR  Census year 
-SEX   Sex
-FAMSIZE The number of own family members residing with each individual, including the person her/himself.
-RACE  Race
-EDUC  Educational attainment
-EMPSTAT Employment status
-FTOTINC Total family income
-POVERTY Poverty status
-INCEARN Total personal earned income
-STATEFIP  State (FIPS code)
-AGE     Age
-RENTGRS Monthly gross rent
-INCTOT  Total personal income
-DIFFMOB Independent living difficulty
-DIFFCARE  Self-care difficulty
+#Big dataset: https://drive.google.com/drive/folders/1OET2e7rQnjcnkJMUHyis1L1LcXXLRJdg?usp=drive_link
+```
 
 ```{python}
+# | echo: false
+# | eval: false
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -48,9 +40,10 @@ import warnings
 warnings.filterwarnings("ignore")
 ```
 
-Data Cleaning 
-
 ```{python}
+# | echo: false
+# | eval: false
+
 base_path = '/Users/ruyuzhang/Desktop/PPHA 30538'
 path_1 = os.path.join(base_path, "usa_00004.csv")
 path_2 = os.path.join(base_path, "states_fips.csv")
@@ -62,17 +55,29 @@ print(f"Shapefile Path: {shapefile_path}")
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 raw_data = pd.read_csv(path_1)
 ```
 
 ```{python}
-#Extract columns as needed
-columns_needed = ['YEAR', 'STATEFIP', 'AGE', 'RENTGRS', 'INCTOT', 'FAMSIZE','POVERTY', 'DIFFMOB', 'DIFFCARE']
+# | echo: false
+# | eval: false
+
+# Data cleaning
+
+# Extract columns as needed
+columns_needed = ['YEAR', 'STATEFIP', 'AGE', 'RENTGRS',
+                  'INCTOT', 'FAMSIZE', 'POVERTY', 'DIFFMOB', 'DIFFCARE']
 cleaned_data = raw_data[columns_needed].copy()
 print(cleaned_data.info())
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Replace NaN
 placeholder_values = [9999999, 0]
 cleaned_data.replace(placeholder_values, np.nan, inplace=True)
@@ -81,6 +86,9 @@ print(cleaned_data.isnull().sum())
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 #  Drop Rows with Missing Values
 cleaned_data = cleaned_data.dropna(
     subset=['RENTGRS', 'INCTOT', 'AGE', 'FAMSIZE', 'POVERTY', 'DIFFMOB', 'DIFFCARE'])
@@ -116,6 +124,9 @@ print(cleaned_data.describe().round(2))
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 df_states = pd.read_csv(path_2)
 df_states = df_states.rename(
     columns={'Postal': 'State', 'State': 'State_name'})
@@ -126,13 +137,20 @@ cleaned_data = pd.merge(cleaned_data, df_states,
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Save cleaned dataframe as .csv
 cleaned_data.to_csv('cleaned_data.csv')
 ```
 
 
-Data Overview
 ```{python}
+# | echo: false
+# | eval: false
+
+# Data Overview
+
 # Descriptive statistics calculation
 stats_summary = cleaned_data[['AGE', 'INCTOT', 'RENTGRS',
                               'Housing_Burden', 'POVERTY', 'DIFFMOB', 'DIFFCARE']].describe().round(2)
@@ -140,6 +158,9 @@ print(stats_summary)
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Identify individuals with significant housing cost burdens
 cleaned_data['Significant_Burden'] = cleaned_data['Housing_Burden'] > 30
 
@@ -159,6 +180,9 @@ print(f"Percentage with Significant Housing Cost Burden: {
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Data for visualization
 labels = ['Significant Burden', 'No Significant Burden']
 values = [elderly_with_burden, total_elderly - elderly_with_burden]
@@ -185,33 +209,42 @@ plt.ylim(0, max(values) * 1.2)
 plt.show()
 ```
 
-Summary data by states
-
 ```{python}
+# | echo: false
+# | eval: false
+
+# State data summary
+
 # Aggregate average housing burden and total elderly population per state
 state_summary_hb = cleaned_data.groupby('State').agg(
-    avg_gross_rent=('RENTGRS','mean'),
+    avg_gross_rent=('RENTGRS', 'mean'),
     avg_housing_burden=('Housing_Burden', 'mean'),
     total_elderly_population=('AGE', 'count'),
     avg_poverty_rate=('POVERTY', 'mean'),
     avg_mobility_issues=('DIFFMOB', 'mean'),
     avg_self_care_difficulty=('DIFFCARE', 'mean'),
     avg_income=('INCTOT', 'mean'),
-    STATEFP=('STATEFIP', 'first') 
+    STATEFP=('STATEFIP', 'first')
 ).reset_index()
 print(state_summary_hb)
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Sort by average housing burden
 state_summary_sorted_hb = state_summary_hb.sort_values(
     by='avg_housing_burden', ascending=False).reset_index(drop=True)
 print(state_summary_sorted_hb)
 ```
 
-
-Linear Regression Models
 ```{python}
+# | echo: false
+# | eval: false
+
+# Linear regression
+
 import statsmodels.api as sm
 
 # Predict Housing Burden using Poverty Rate and Elderly Population
@@ -229,26 +262,30 @@ print(model.summary())
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Scatterplot with regression line
 regression_chart_1 = alt.Chart(state_summary_hb).mark_circle(size=100).encode(
-    x=alt.X('avg_poverty_rate:Q', 
+    x=alt.X('avg_poverty_rate:Q',
             title='Average Poverty Rate',
-            scale=alt.Scale(domain=[200, 360]) 
-           ),
-    y=alt.Y('avg_housing_burden:Q', 
+            scale=alt.Scale(domain=[200, 360])
+            ),
+    y=alt.Y('avg_housing_burden:Q',
             title='Average Housing Burden (%)',
-            scale=alt.Scale()  
-           ),
-     color=alt.Color('State:N', legend=None),
-    tooltip=['State', 'avg_poverty_rate', 'avg_housing_burden', 'total_elderly_population']
+            scale=alt.Scale()
+            ),
+    color=alt.Color('State:N', legend=None),
+    tooltip=['State', 'avg_poverty_rate',
+             'avg_housing_burden', 'total_elderly_population']
 ).properties(
     title=alt.TitleParams(
         text='Linear Regression: Housing Burden vs. Poverty Rate',
-        anchor='middle',  
+        anchor='middle',
         fontSize=16
     ),
-    width=400,  
-    height=400  
+    width=400,
+    height=400
 )
 
 # Add regression line
@@ -258,9 +295,9 @@ regression_line = regression_chart_1.transform_regression(
 
 # Combine scatterplot and regression line
 regression_combined_chart_1 = (regression_chart_1 + regression_line).configure_view(
-    stroke=None  
+    stroke=None
 ).configure_title(
-    anchor='middle',  
+    anchor='middle',
     fontSize=16
 )
 
@@ -268,6 +305,9 @@ regression_combined_chart_1.display()
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Predict Housing Burden using Mobility Issue and Elderly Population
 X = state_summary_hb[['avg_mobility_issues', 'total_elderly_population']]
 y = state_summary_hb['avg_housing_burden']
@@ -283,26 +323,30 @@ print(model.summary())
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Scatterplot with regression line
 regression_chart_2 = alt.Chart(state_summary_hb).mark_circle(size=100).encode(
-    x=alt.X('avg_mobility_issues:Q', 
+    x=alt.X('avg_mobility_issues:Q',
             title='Average Mobility Issues Score',
-            scale=alt.Scale(domain=[1, 1.3])  
-           ),
-    y=alt.Y('avg_housing_burden:Q', 
+            scale=alt.Scale(domain=[1, 1.3])
+            ),
+    y=alt.Y('avg_housing_burden:Q',
             title='Average Housing Burden (%)',
-            scale=alt.Scale() 
-           ),
+            scale=alt.Scale()
+            ),
     color=alt.Color('State:N', legend=None),
-    tooltip=['State', 'avg_mobility_issues', 'avg_housing_burden', 'total_elderly_population']
+    tooltip=['State', 'avg_mobility_issues',
+             'avg_housing_burden', 'total_elderly_population']
 ).properties(
     title=alt.TitleParams(
         text='Linear Regression: Housing Burden vs. Mobility Issue',
-        anchor='middle',  
+        anchor='middle',
         fontSize=16
     ),
-    width=400,  
-    height=400  
+    width=400,
+    height=400
 )
 
 # Add regression line
@@ -312,9 +356,9 @@ regression_line = regression_chart_2.transform_regression(
 
 # Combine scatterplot and regression line
 regression_combined_chart_2 = (regression_chart_2 + regression_line).configure_view(
-    stroke=None  
+    stroke=None
 ).configure_title(
-    anchor='middle',  
+    anchor='middle',
     fontSize=16
 )
 
@@ -322,6 +366,9 @@ regression_combined_chart_2.display()
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Predict Housing Burden using Mobility Issue and Elderly Population
 X = state_summary_hb[['avg_self_care_difficulty', 'total_elderly_population']]
 y = state_summary_hb['avg_housing_burden']
@@ -337,14 +384,17 @@ print(model.summary())
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Scatterplot with regression line
 regression_chart_3 = alt.Chart(state_summary_hb).mark_circle(size=100).encode(
     x=alt.X('avg_self_care_difficulty:Q',
-            title='Average Self-care Score', 
+            title='Average Self-care Score',
             scale=alt.Scale(domain=[1, 1.2])
             ),
-    y=alt.Y('avg_housing_burden:Q', 
-        title='Average Housing Burden (%)'
+    y=alt.Y('avg_housing_burden:Q',
+            title='Average Housing Burden (%)'
             ),
     color=alt.Color('State:N', legend=None),
     tooltip=['State', 'avg_self_care_difficulty',
@@ -352,11 +402,11 @@ regression_chart_3 = alt.Chart(state_summary_hb).mark_circle(size=100).encode(
 ).properties(
     title=alt.TitleParams(
         text='Linear Regression: Housing Burden vs. Self-care Issue',
-        anchor='middle',  
+        anchor='middle',
         fontSize=16
     ),
-    width=400,  
-    height=400  
+    width=400,
+    height=400
 )
 
 # Add regression line
@@ -366,23 +416,31 @@ regression_line = regression_chart_3.transform_regression(
 
 # Combine scatterplot and regression line
 regression_combined_chart_3 = (regression_chart_3 + regression_line).configure_view(
-    stroke=None  
+    stroke=None
 ).configure_title(
-    anchor='middle',  
+    anchor='middle',
     fontSize=16
 )
 regression_combined_chart_3.display()
 ```
 
-Multivariate Model
 
 ```{python}
+# | echo: false
+# | eval: false
+
+# Multivariate regression
+
 # Select predictors and target variable
-predictors = ['avg_poverty_rate', 'total_elderly_population', 'avg_mobility_issues', 'avg_self_care_difficulty']
+predictors = ['avg_poverty_rate', 'total_elderly_population',
+              'avg_mobility_issues', 'avg_self_care_difficulty']
 target = 'avg_housing_burden'
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Select predictors and target variable
 X = state_summary_hb[predictors]
 y = state_summary_hb[target]
@@ -398,6 +456,9 @@ print(model.summary())
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Extract coefficients
 coefficients = model.params.reset_index()
 coefficients.columns = ['Predictor', 'Coefficient']
@@ -419,28 +480,38 @@ coefficient_chart.display()
 ```
 
 
-Geographic Distribution of Housing Burden
 ```{python}
+# | echo: false
+# | eval: false
+
+# Geographic Distribution of Housing Burden
+
 # Define regional groups for U.S. states
 region_mapping = {
-    'Northeast': ['9', '23', '25', '33', '34', '36', '42', '44', '50', '10', '11'],  
-    'Midwest': ['17', '18', '19', '20', '26', '27', '29', '31', '38', '39', '46', '55'],  
+    'Northeast': ['9', '23', '25', '33', '34', '36', '42', '44', '50', '10', '11'],
+    'Midwest': ['17', '18', '19', '20', '26', '27', '29', '31', '38', '39', '46', '55'],
     'South': ['1', '5', '12', '13', '21', '22', '24', '28', '37', '40', '45', '47', '48', '51', '54'],
-    'West': ['2', '4', '6', '8', '15', '16', '30', '32', '35', '41', '49', '53', '56']  
+    'West': ['2', '4', '6', '8', '15', '16', '30', '32', '35', '41', '49', '53', '56']
 }
 
 # Function to assign regions based on STATEFIP
+
+
 def assign_region(state_fip):
     for region, states in region_mapping.items():
-        if str(state_fip) in states:  
+        if str(state_fip) in states:
             return region
     return 'Unknown'
+
 
 # Add a 'Region' column to the cleaned data
 cleaned_data['Region'] = cleaned_data['STATEFIP'].apply(assign_region)
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Group by Region and calculate averages for key metrics
 regional_summary = cleaned_data.groupby('Region').agg(
     avg_mobility_issues=('DIFFMOB', 'mean'),
@@ -453,10 +524,14 @@ print(regional_summary)
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 chart_region = alt.Chart(regional_summary).mark_bar().encode(
     x=alt.X('avg_housing_burden:Q', title='Average Housing Burden (%)'),
     y=alt.Y('Region:N', title='Region', sort='-x'),
-    tooltip=['Region', 'avg_housing_burden', 'avg_poverty_rate', 'avg_mobility_issues']
+    tooltip=['Region', 'avg_housing_burden',
+             'avg_poverty_rate', 'avg_mobility_issues']
 ).properties(
     title='Average Housing Burden by Region',
     width=500,
@@ -467,8 +542,11 @@ chart_region.display()
 ```
 
 ```{python}
-top_10_high_burden = state_summary_sorted_hb.head (10)
-print (top_10_high_burden)
+# | echo: false
+# | eval: false
+
+top_10_high_burden = state_summary_sorted_hb.head(10)
+print(top_10_high_burden)
 
 # Bar chart for top 10 high housing burden states
 chart_top_10 = alt.Chart(top_10_high_burden).mark_bar().encode(
@@ -487,43 +565,35 @@ chart_top_10 = alt.Chart(top_10_high_burden).mark_bar().encode(
 chart_top_10.display()
 ```
 
-```{python}
-# Calculate averages for the top 10 states vs. others
-high_burden_states = top_10_high_burden['STATEFP'].unique()
-cleaned_data['Is_High_Burden'] = cleaned_data['STATEFIP'].isin(high_burden_states)
-
-# Group by high-burden status
-comparison_summary = cleaned_data.groupby('Is_High_Burden').agg(
-    avg_mobility_issues=('DIFFMOB', 'mean'),
-    avg_self_care_difficulty=('DIFFCARE', 'mean'),
-    avg_poverty_rate=('POVERTY', 'mean') 
-).reset_index()
-
-# Display the summary
-print(comparison_summary)
-```
-
-
-Standardized Test
 
 ```{python}
+# | echo: false
+# | eval: false
+
+# Standardized Test
+
 # Create a copy of the regional summary for standardization
 standardized_diff = regional_summary.copy()
 
 # List of metrics to standardize
-metrics = ['avg_mobility_issues', 'avg_self_care_difficulty', 'avg_poverty_rate', 'avg_housing_burden']
+metrics = ['avg_mobility_issues', 'avg_self_care_difficulty',
+           'avg_poverty_rate', 'avg_housing_burden']
 
 # Standardize metrics by calculating z-scores
 for metric in metrics:
     mean_metric = regional_summary[metric].mean()
     std_metric = regional_summary[metric].std()
-    standardized_diff[f'std_{metric}'] = (regional_summary[metric] - mean_metric) / std_metric
+    standardized_diff[f'std_{metric}'] = (
+        regional_summary[metric] - mean_metric) / std_metric
 
 # Display the standardized differences
 print(standardized_diff)
 ```
 
 ```{python}
+# | echo: false
+# | eval: false
+
 # Ensure columns for folding exist
 columns_to_fold = [
     'std_avg_mobility_issues',
@@ -534,9 +604,9 @@ columns_to_fold = [
 
 # Fold the data into long format for Altair
 folded_data = standardized_diff.melt(
-    id_vars=['Region'], 
-    value_vars=columns_to_fold, 
-    var_name='Metric', 
+    id_vars=['Region'],
+    value_vars=columns_to_fold,
+    var_name='Metric',
     value_name='Standardized Value'
 )
 
@@ -557,4 +627,58 @@ heatmap = alt.Chart(folded_data).mark_rect().encode(
 
 heatmap.display()
 ```
+
+
+**Introduction:** 
+Housing burden occurs when a household spends more than 30% of its income on housing costs. In 2022, about one-third of older adult households in the U.S. were cost-burdened, and nearly 60% of older adult renters in Chicago faced this strain. This project investigates the factors contributing to housing cost burdens among older adults, examines geographic disparities, and explores potential policy interventions to address this growing challenge.
+
+**Research Question:** 
+This project addresses three questions: (1) Which economic and health-related factors are most strongly associated with elevated housing cost burdens for older adults (65+)? (2) Where are these burdens most pronounced across the U.S., and how do regional or state-level differences shape the issue? (3) How can these insights inform policy interventions to mitigate housing affordability challenges?
+
+**Methodology:** 
+We used three datasets for this project: the 2023 American ACS sample from IPUMS USA, focusing on variables such as STATEFIP (state FIPS codes), Age, INCTOT (total personal income), FAMSIZE (family size), RENTGRS (monthly gross rent), POVERTY (poverty status), DIFFMOB (mobility difficulty: 1-No; 2-Yes), and DIFFCARE (self-care difficulty: 1-No; 2-Yes); the State Abbreviations and FIPS Codes Dataset; and the 2023 TIGER/Line Shapefiles from the United States Census Bureau.
+
+Data cleaning involved selecting relevant columns, replacing placeholder values with NaN, and removing rows with missing or invalid data. Individuals aged 65+ with incomes above $12,000 were retained to align with the $14,614 poverty line, focusing on those not in extreme poverty. Housing_Burden was calculated as annual housing costs divided by total income, expressed as a percentage. The dataset was then merged with the State Abbreviations and FIPS Codes Dataset to add state-level identifiers.
+
+To assess the prevalence of housing burdens, individuals were categorized into two groups: those spending over 30% of their income on housing and those spending less. A bar chart created with Altair visualized these groups, providing clear proportions for interpretability. Linear regression analyses using statsmodels examined relationships between housing burden and predictors such as poverty rate, mobility difficulties, and self-care challenges, with scatter plots illustrating the strength and direction of these relationships. A multivariate regression model analyzed predictors of housing burden, including poverty rate, elderly population, mobility issues, and self-care difficulty. Coefficients were visualized with an Altair bar chart, highlighting each predictor's significance and impact on housing burden nationally.
+
+For geographic analysis, states were grouped into four regions using FIPS codes, and key metrics like average housing burden, poverty rate, and mobility issues were calculated. Altair bar charts compared regions and visualized the top 10 states with the highest burdens, though reliance on averages masked internal disparities. Regional comparisons were further standardized using z-scores and visualized with an Altair heatmap, though this assumed normal distribution, potentially impacting comparability.
+
+An interactive Shiny app allowed users to explore metrics such as average housing burden and total elderly population. Choropleth maps styled with the AlbersUSA projection showcased national trends, while histogram views highlighted intra-state variability. Dynamic descriptive statistics added context, providing both broad overviews and detailed insights. A challenge was optimizing shapefiles to maintain smooth performance for this interactive tool.
+
+**Results:**
+
+**Results 1: Core Housing Burden Trends:**
+
+![](./pictures/percentage.png){width=150px}
+![](./pictures/linear.jpeg){width=200px}
+![](./pictures/multivariate.png){width=170px}
+
+Our findings reveal that more than half (51.35%) of older adults studied spend over 30% of their income on housing, underscoring a pervasive affordability crisis. Linear regression analyses show a clear, positive relationship between poverty and housing burden, while mobility and self-care difficulties individually exert weaker direct effects. Notably, a multivariate regression model identifies self-care challenges as the strongest predictor, followed by mobility issues and poverty, suggesting the need for policies that integrate both financial and supportive health services.
+
+**Results 2: Geographic Variation and Top-10 Ranking:** 
+
+![](./pictures/region.png){width=150px}
+![](./pictures/top_10_states.png){width=150px}
+
+Geographic variation further refines our understanding. The West and Northeast consistently exhibit higher average housing burdens and elevated poverty rates, indicating that local market conditions and economic constraints shape regional disparities. In contrast, the Midwest shows comparatively lower burdens, suggesting that fewer households exceed the critical 30% income threshold. Meanwhile, a top-10 ranking of states by housing burden, largely clustered in the West and Northeast, highlights the importance of local cost drivers and the potential benefits of targeted policy measures.
+
+**Result 3: Multi-Metric Standardization and Policy Implications:**
+
+![](./pictures/standardized.png){width=190px}
+
+A standardized, multi-metric heatmap analysis reveals that no single intervention is likely to suffice across all regions. Policies that expand affordable housing and rental assistance may prove most impactful in high-burden areas, while regions with moderate burdens but high poverty rates might prioritize anti-poverty initiatives and improved healthcare access. These differentiated insights underscore the complexity of housing affordability challenges and the necessity of regionally tailored strategies.
+
+**Result 4: Shiny Application:**
+
+![](./pictures/shiny_avg_housing_burden.png){width=100px}
+![](./pictures/shiny_avg_income.png){width=100px}
+![](./pictures/shiny_total_elderly_population.png){width=100px}
+![](./pictures/shiny_histogram.png){width=230px}
+
+The Shiny application translates these findings into an interactive tool. Users can toggle between national maps and state-specific histograms, exploring variations in housing burden, poverty, and income. This dual perspective supports both broad policy discussions and localized analysis. By offering a dynamic interface, the app empowers stakeholders to investigate factors influencing housing burdens and identify actionable solutions.
+
+**Policy Implications & Future Work:** 
+Addressing housing burdens for older adults requires multifaceted strategies, including financial interventions like rental subsidies and affordable housing alongside support for mobility and self-care challenges. Regional disparities suggest that tailored approaches, rather than one-size-fits-all solutions, are essential. Future research should include more granular geographic data, longitudinal analyses, and additional variables like healthcare access to inform more targeted interventions. A holistic approach integrating economic, health, and geographic factors is critical to crafting equitable and effective policies for improving the well-being of older Americans.
+
 
