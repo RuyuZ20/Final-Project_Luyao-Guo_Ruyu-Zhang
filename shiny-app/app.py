@@ -6,44 +6,34 @@ import tempfile
 import os
 
 # Paths for input files
-base_path = '/Users/ruyuzhang/Desktop/PPHA 30538'
+base_path = '/Users/apple/Desktop/class/Dap-2/problem_sets/final_project/Untitled/Final-Project_Luyao-Guo_Ruyu-Zhang/shiny-app'
 csv_path = os.path.join(base_path, "cleaned_data.csv")
 shapefile_path = os.path.join(base_path, "tl_2023_us_state.shp")
 
-# Load cleaned data
 def load_cleaned_data(csv_path):
     cleaned_data = pd.read_csv(csv_path)
     return cleaned_data
 
-# GeoDataFrame merging function
 def merge_geodata(cleaned_data, shapefile_path):
     gdf_states = gpd.read_file(shapefile_path)
     gdf_states['STATEFP'] = gdf_states['STATEFP'].astype(int)
 
-    # Explicit calculation of metrics at the state level
     state_summary_hb = cleaned_data.groupby('STATEFIP').agg(
         avg_housing_burden=('Housing_Burden', 'mean'),
         total_elderly_population=('AGE', 'count'),
         avg_income=('INCTOT', 'mean')
     ).reset_index()
 
-    # Rename for merging consistency
     state_summary_hb.rename(columns={'STATEFIP': 'STATEFP'}, inplace=True)
-
-    # Merge with shapefile
     merged_gdf = gdf_states.merge(state_summary_hb, on='STATEFP', how='left')
 
     return merged_gdf
 
-# Load and process data
 cleaned_data = load_cleaned_data(csv_path)
 merged_gdf = merge_geodata(cleaned_data, shapefile_path)
 
-# Shiny app UI
 app_ui = ui.page_fluid(
     ui.panel_title("Housing Burden Among Older Adults"),
-    
-    # Input selectors at the top
     ui.row(
         ui.column(
             4,  
@@ -74,7 +64,6 @@ app_ui = ui.page_fluid(
             )
         )
     ),
-    
     ui.row(
         ui.column(
             6, 
@@ -90,7 +79,6 @@ app_ui = ui.page_fluid(
     )
 )
 
-# Shiny app server
 def server(input, output, session):
     @output
     @render.image
@@ -103,7 +91,6 @@ def server(input, output, session):
         }[metric]
 
         if input.view_mode() == "us_plot":
-            # Create the US-wide Plotly map
             fig = px.choropleth(
                 merged_gdf,
                 geojson=merged_gdf.geometry,
@@ -111,20 +98,18 @@ def server(input, output, session):
                 color=metric,
                 color_continuous_scale="OrRd",
                 labels={metric: metric_label},
-                title=f"{metric_label} by State"
+                title=f"{metric_label} by State",
+                scope='usa',
             )
             fig.update_geos(
-                fitbounds="geojson",
-                visible=False,
-                projection_scale=4,
-                center={"lon": -115, "lat": 40},  # Center on the US
-                lonaxis_range=[-180, -50],  # Longitude limits
-                lataxis_range=[15, 75]   
+                projection_type="albers usa",
+                visible=False
             )
             fig.update_layout(
-                height=900,  
-                width=1200,  
-                margin={"r": 100, "t": 50, "l": 50, "b": 50},  
+                title_x=0.5,
+                margin={"r":20, "t":60, "l":20, "b":20},  
+                width=800,
+                height=600,
                 coloraxis_colorbar=dict(
                     title=metric_label,
                     ticks="outside",
@@ -133,16 +118,8 @@ def server(input, output, session):
                 )
             )
         else:
-            # Create the state-specific Plotly map
             selected_state_fp = input.state()
             state_data = cleaned_data[cleaned_data['STATEFIP'] == int(selected_state_fp)]
-
-            # Debugging: Check for extreme or invalid values in Housing_Burden
-            print("Descriptive statistics for Housing_Burden in selected state:")
-            print(state_data['Housing_Burden'].describe())
-            print("Rows with Housing_Burden > 100%:")
-            print(state_data[state_data['Housing_Burden'] > 100])
-
 
             fig = px.histogram(
                 state_data,
@@ -151,13 +128,17 @@ def server(input, output, session):
                 title=f"Housing Burden Distribution in {merged_gdf.loc[merged_gdf['STATEFP'] == int(selected_state_fp), 'NAME'].values[0]}",
                 labels={"Housing_Burden": "Housing Burden (%)"}
             )
-            fig.update_layout(xaxis_title="Housing Burden (%)", yaxis_title="Count")
+            fig.update_layout(
+                height=500,
+                width=700,
+                xaxis_title="Housing Burden (%)", 
+                yaxis_title="Count"
+            )
 
-            # Save the plot to a temporary file
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp:
-            fig.write_image(temp.name)
+            # 增加format='png'参数
+            fig.write_image(temp.name, format='png')
             return {"src": temp.name, "alt": metric_label}
-
 
     @output
     @render.text
@@ -166,7 +147,6 @@ def server(input, output, session):
             selected_state_fp = input.state()
             state_data = cleaned_data[cleaned_data['STATEFIP'] == int(selected_state_fp)]
 
-            # Calculate statistics
             avg_burden = state_data["Housing_Burden"].mean()
             total_population = len(state_data)
             avg_income = state_data["INCTOT"].mean()
@@ -175,7 +155,6 @@ def server(input, output, session):
 
             state_name = merged_gdf.loc[merged_gdf["STATEFP"] == int(selected_state_fp), "NAME"].values[0]
 
-            # Display statistics with line breaks
             return (
                 f"State: {state_name}\n"
                 f"Average Housing Burden: {avg_burden:.2f}%\n"
@@ -184,7 +163,6 @@ def server(input, output, session):
                 f"Max Housing Burden: {max_burden:.2f}%\n"
                 f"Min Housing Burden: {min_burden:.2f}%"
             )
-        return 
+        return ""
 
-# Shiny app initialization
 app = App(app_ui, server)
